@@ -16,6 +16,7 @@ env:
   LIST_TESTS_ID: ${{ vars.TRELLO_LIST_TESTS_ID }}
   LIST_DONE_ID: ${{ vars.TRELLO_LIST_DONE_ID }}
   LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
+  LIST_WAITING_DEPLOY_TESTS_ID: ${{ vars.TRELLO_LIST_WAITING_DEPLOY_TESTS_ID }}
 
 jobs:
   automate-trello:
