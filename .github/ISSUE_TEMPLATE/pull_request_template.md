@@ -1,16 +1,19 @@
-<!-- 
-⚠️ Certifique-se de seguir as boas práticas abaixo para garantir que a automação funcione.
-A automação move o card do Trello para "TESTS" ou "✅ Done" com base no PR.
--->
+### 🔗 Vinculação com Trello
+- [ ] Link do card: `https://trello.com/c/...`
 
-## 📝 Descrição
+### ✅ Checklist
+- [ ] Funcionalidade implementada
+- [ ] Testes unitários/integração passando
+- [ ] Revisão de código concluída
+- [ ] Nenhum erro de lint
+- [ ] Documentação atualizada
 
-Descreva brevemente as mudanças feitas neste PR.
+### 📝 Descrição
+<!-- Descreva as mudanças feitas -->
+
+### 🧪 Como testar
+<!-- Instruções para validar a mudança -->
 
 ---
 
-## 🔗 Vinculação com Trello
-
-> ⚠️ **Essencial para a automação funcionar**
-
-Relacione este PR a um card no Trello:
+> Esta PR segue o fluxo automatizado.
