@@ -20,6 +20,7 @@ env:
 jobs:
   automate-trello:
     runs-on: ubuntu-latest
+    environment: TRELLO_API
     steps:
       # 1. Extrair CARD_ID do link no corpo do PR
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
