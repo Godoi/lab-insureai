@@ -30,7 +30,7 @@ jobs:
             CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
             echo "🚚 Movendo card $CARD_ID para WAITING DEPLOY TESTS..."
             curl -X PUT "https://api.trello.com/1/cards/${CARD_ID}" \
-              --data-urlencode "idList=${{ env. LIST_WAITING_DEPLOY_TESTS_ID }" \
+              --data-urlencode "idList=${{ env.LIST_WAITING_DEPLOY_TESTS_ID }}" \
               --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
               --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
           else
