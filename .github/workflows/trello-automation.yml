@@ -8,35 +8,28 @@ on:
       - main
   issues:
     types: [opened, closed]
-  # workflow_run:
-  #   types: [completed]
-
-env:
-  # IDs das listas (configure em Settings → Variables)
-  LIST_TESTS_ID: ${{ vars.TRELLO_LIST_TESTS_ID }}
-  LIST_DONE_ID: ${{ vars.TRELLO_LIST_DONE_ID }}
-  LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
-  LIST_WAITING_DEPLOY_TESTS_ID: ${{ vars.TRELLO_LIST_WAITING_DEPLOY_TESTS_ID }}
 
 jobs:
   automate-trello:
     runs-on: ubuntu-latest
     environment: TRELLO_API
+    env:
+      LIST_TESTS_ID: ${{ vars.TRELLO_LIST_TESTS_ID }}
+      LIST_DONE_ID: ${{ vars.TRELLO_LIST_DONE_ID }}
+      LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
+
     steps:
-      # 🔍 Debug: Mostrar informações do evento
-      - name: 🔍 Debug - Informações do evento
+      # 🔒 Validação: Impede merge se não houver link do Trello
+      - name: 🔒 Validar link do Trello no corpo do PR
+        if: github.event_name == 'pull_request'
         run: |
-          echo "✅ Workflow disparado!"
-          echo "Evento: ${{ github.event_name }}"
-          echo "Ação: ${{ github.event.action }}"
-          echo "Branch de destino: ${{ github.event.pull_request.target.ref }}"
-          echo "Base ref (fallback): ${{ github.base_ref }}"
-          echo "Corpo do PR: ${{ github.event.pull_request.body }}"
-          if [ -z "${{ github.event.pull_request.body }}" ]; then
-            echo "::warning::O corpo do PR está vazio ou não foi passado corretamente."
+          BODY="${{ github.event.pull_request.body }}"
+          if ! echo "$BODY" | grep -qE 'https://trello.com/c/[a-zA-Z0-9]+'; then
+            echo "::error::❌ Falha: O corpo do PR deve conter um link do Trello (ex: https://trello.com/c/kz7q1L3x)"
+            exit 1
           fi
 
-      # 1. Extrair CARD_ID do link no corpo do PR
+      # 🧹 Extrair CARD_ID do link no corpo do PR
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
         run: |
           echo "🔍 Procurando link do Trello no PR..."
@@ -46,10 +39,10 @@ jobs:
             echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
             echo "::notice title=Card encontrado::$CARD_ID"
           else
-            echo "::warning title=Card não encontrado::Adicione no PR: Relates to: https://trello.com/c/abc123xyz"
+            echo "::warning title=Card não encontrado::Adicione: https://trello.com/c/abc123"
           fi
 
-      # 2. Mover para TESTS se PR for para release/testing
+      # 🟡 Mover para TESTS se PR for para release/testing
       - name: 🟡 Mover para TESTS (release/testing)
         if: (github.event.pull_request.target.ref == 'release/testing' || github.base_ref == 'release/testing') && env.CARD_ID != ''
         run: |
@@ -59,7 +52,7 @@ jobs:
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 3. Mover para ✅ Done se PR for mergiado no main
+      # 🟢 Mover para ✅ Done se PR for mergiado no main
       - name: 🟢 Mover para ✅ Done (merge no main)
         if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
         run: |
@@ -69,23 +62,7 @@ jobs:
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 4. Atualizar descrição do card com link do PR
-      - name: 🔄 Atualizar descrição do card
-        if: env.CARD_ID != '' && github.event.action != 'closed'
-        run: |
-          DESCRIPTION="🔧 **Pull Request #${{ github.event.number }} (${{ github.event.action }})**  
-          🔗 [Acessar PR](${{ github.event.pull_request.html_url }})  
-          📝 *${{ github.event.pull_request.title }}*  
-          👤 por @${{ github.actor }}  
-          📅 ${{ github.event.pull_request.updated_at }}
-
-          Este card está vinculado à automação do GitHub Actions."
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}" \
-            --data-urlencode "desc=$DESCRIPTION"
-
-      # 5. Criar card para nova issue com label 'bug'
+      # 🐛 Criar card para nova issue com label 'bug'
       - name: 🐛 Criar card para bug
         if: github.event_name == 'issues' && github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')
         run: |
@@ -97,22 +74,21 @@ jobs:
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 6. Notificar falha na CI
-      - name: ❌ Notificar falha na CI
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure'
+      # 🔄 Notificar no card se o PR for atualizado (synchronize)
+      - name: 🔄 Notificar atualização no PR
+        if: github.event.action == 'synchronize' && env.CARD_ID != ''
         run: |
-          echo "🚨 Falha na CI detectada"
-          curl -X POST "https://api.trello.com/1/cards/${{ secrets.MONITORING_CARD_ID }}/actions/comments" \
-            --data-urlencode "text=❌ Falha na CI: ${{ github.event.workflow_run.name }}\n➡️ [Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }})" \
+          echo "🔄 Notificando atualização no card ${{ env.CARD_ID }}..."
+          curl -X POST "https://api.trello.com/1/cards/${{ env.CARD_ID }}/actions/comments" \
+            --data-urlencode "text=🔄 PR atualizado: [Acessar PR](${{ github.event.pull_request.html_url }}) por @${{ github.actor }}" \
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 7. Registrar localmente se Trello falhar
+      # 📝 Fallback: Registrar localmente se falhar
       - name: 📝 Fallback - Registrar localmente se Trello falhar
         if: failure()
         run: |
           mkdir -p logs
-          echo "GH_ACTION=move_to_tests" >> $GITHUB_ENV
           echo "GH_PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
           echo "GH_PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
           echo "GH_TARGET_BRANCH=${{ github.event.pull_request.target.ref }}" >> $GITHUB_ENV

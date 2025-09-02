@@ -3,7 +3,7 @@
 
 ### ✅ Checklist
 - [ ] Funcionalidade implementada
-- [ ] Testes unitários/integração passando
+- [ ] Testes passando
 - [ ] Revisão de código concluída
 - [ ] Nenhum erro de lint
 - [ ] Documentação atualizada
@@ -16,4 +16,5 @@
 
 ---
 
-> Esta PR segue o fluxo automatizado.
+> Esta PR segue o fluxo automatizado:  
+> `TO DO → IN PROGRESS → TESTS → DONE`
