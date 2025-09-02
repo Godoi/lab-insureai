@@ -83,7 +83,7 @@ jobs:
           --data-urlencode "text=❌ Falha na CI: ${{ github.event.workflow_run.name }}\n➡️ [Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }})"
 
       # 7. Registrar localmente se Trello falhar
-      - name: 📝 Fallback: Registrar localmente se Trello falhar
+      - name: 📝 Fallback - Registrar localmente se Trello falhar
         if: failure()
         run: |
           mkdir -p logs
