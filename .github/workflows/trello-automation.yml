@@ -12,7 +12,7 @@ on:
   #   types: [completed]
 
 env:
-  # IDs das listas (configure em Settings → Environments)
+  # IDs das listas (configure em Settings → Variables)
   LIST_TESTS_ID: ${{ vars.TRELLO_LIST_TESTS_ID }}
   LIST_DONE_ID: ${{ vars.TRELLO_LIST_DONE_ID }}
   LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
@@ -23,11 +23,9 @@ jobs:
     steps:
       # 1. Extrair CARD_ID do link no corpo do PR
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
-        id: extract-card
         run: |
           echo "🔍 Procurando link do Trello no PR..."
           CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1)
-          
           if [ -n "$CARD_URL" ]; then
             CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
             echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
@@ -54,33 +52,37 @@ jobs:
       - name: 🔄 Atualizar descrição do card
         if: env.CARD_ID != '' && github.event.action != 'closed'
         run: |
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?key=any&token=${{ secrets.TRELLO_TOKEN }}" \
-          --data-urlencode "desc=🔧 **Pull Request #${{ github.event.number }} (${{ github.event.action }})**  
+          DESCRIPTION="🔧 **Pull Request #${{ github.event.number }} (${{ github.event.action }})**  
           🔗 [Acessar PR](${{ github.event.pull_request.html_url }})  
           📝 *${{ github.event.pull_request.title }}*  
           👤 por @${{ github.actor }}  
           📅 ${{ github.event.pull_request.updated_at }}
 
           Este card está vinculado à automação do GitHub Actions."
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?key=any&token=${{ secrets.TRELLO_TOKEN }}" \
+            --data-urlencode "desc=$DESCRIPTION"
 
       # 5. Criar card para nova issue com label 'bug'
       - name: 🐛 Criar card para bug
         if: github.event_name == 'issues' && github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')
         run: |
           echo "🆕 Criando card para bug..."
-          curl -X POST "https://api.trello.com/1/cards?key=any&token=${{ secrets.TRELLO_TOKEN }}" \
-          --data-urlencode "name=[BUG] ${{ github.event.issue.title }}" \
-          --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}" \
-          --data-urlencode "idList=${{ env.LIST_BUGS_ID }}"
+          curl -X POST "https://api.trello.com/1/cards" \
+            --data-urlencode "name=[BUG] ${{ github.event.issue.title }}" \
+            --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}" \
+            --data-urlencode "idList=${{ env.LIST_BUGS_ID }}" \
+            --data-urlencode "key=any" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 6. Notificar falha na CI
       - name: ❌ Notificar falha na CI
         if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure'
         run: |
           echo "🚨 Falha na CI detectada"
-          # Opcional: buscar CARD_ID de um card fixo de monitoramento
-          curl -X POST "https://api.trello.com/1/cards/${{ secrets.MONITORING_CARD_ID }}/actions/comments?key=any&token=${{ secrets.TRELLO_TOKEN }}" \
-          --data-urlencode "text=❌ Falha na CI: ${{ github.event.workflow_run.name }}\n➡️ [Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }})"
+          curl -X POST "https://api.trello.com/1/cards/${{ secrets.MONITORING_CARD_ID }}/actions/comments" \
+            --data-urlencode "text=❌ Falha na CI: ${{ github.event.workflow_run.name }}\n➡️ [Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }})" \
+            --data-urlencode "key=any" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 7. Registrar localmente se Trello falhar
       - name: 📝 Fallback - Registrar localmente se Trello falhar
