@@ -8,8 +8,8 @@ on:
       - main
   issues:
     types: [opened, closed]
-  workflow_run:
-    types: [completed]
+  # workflow_run:
+  #   types: [completed]
 
 env:
   # IDs das listas (configure em Settings → Environments)
