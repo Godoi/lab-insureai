@@ -29,6 +29,7 @@ jobs:
           echo "Evento: ${{ github.event_name }}"
           echo "Ação: ${{ github.event.action }}"
           echo "Branch de destino: ${{ github.event.pull_request.target.ref }}"
+          echo "Base ref (fallback): ${{ github.base_ref }}"
           echo "Corpo do PR: ${{ github.event.pull_request.body }}"
           if [ -z "${{ github.event.pull_request.body }}" ]; then
             echo "::warning::O corpo do PR está vazio ou não foi passado corretamente."
@@ -49,17 +50,23 @@ jobs:
 
       # 2. Mover para TESTS se PR for para release/testing
       - name: 🟡 Mover para TESTS (release/testing)
-        if: github.event.pull_request.target.ref == 'release/testing' && env.CARD_ID != ''
+        if: (github.event.pull_request.target.ref == 'release/testing' || github.base_ref == 'release/testing') && env.CARD_ID != ''
         run: |
           echo "🚚 Movendo card ${{ env.CARD_ID }} para TESTS..."
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?idList=${{ env.LIST_TESTS_ID }}&key=${{ secrets.TRELLO_API_KEY }}&token=${{ secrets.TRELLO_TOKEN }}"
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+            --data-urlencode "idList=${{ env.LIST_TESTS_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 3. Mover para ✅ Done se PR for mergiado no main
       - name: 🟢 Mover para ✅ Done (merge no main)
-        if: github.event.pull_request.merged == true && github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
+        if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
         run: |
           echo "✅ Movendo card ${{ env.CARD_ID }} para DONE..."
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?idList=${{ env.LIST_DONE_ID }}&key=${{ secrets.TRELLO_API_KEY }}&token=${{ secrets.TRELLO_TOKEN }}"
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+            --data-urlencode "idList=${{ env.LIST_DONE_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 4. Atualizar descrição do card com link do PR
       - name: 🔄 Atualizar descrição do card
@@ -72,7 +79,9 @@ jobs:
           📅 ${{ github.event.pull_request.updated_at }}
 
           Este card está vinculado à automação do GitHub Actions."
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?key=${{ secrets.TRELLO_API_KEY }}&token=${{ secrets.TRELLO_TOKEN }}" \
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}" \
             --data-urlencode "desc=$DESCRIPTION"
 
       # 5. Criar card para nova issue com label 'bug'
