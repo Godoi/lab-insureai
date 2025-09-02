@@ -1,0 +1,94 @@
+name: 🔄 GitHub + Trello Automation
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - release/testing
+      - main
+  issues:
+    types: [opened, closed]
+  # workflow_run:
+  #   types: [completed]
+
+env:
+  # IDs das listas (configure em Settings → Environments)
+  LIST_TESTS_ID: ${{ vars.TRELLO_LIST_TESTS_ID }}
+  LIST_DONE_ID: ${{ vars.TRELLO_LIST_DONE_ID }}
+  LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
+
+jobs:
+  automate-trello:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Extrair CARD_ID do link no corpo do PR
+      - name: 🧹 Extrair TRELLO_CARD_ID do PR
+        id: extract-card
+        run: |
+          echo "🔍 Procurando link do Trello no PR..."
+          CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1)
+          
+          if [ -n "$CARD_URL" ]; then
+            CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
+            echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
+            echo "::notice title=Card encontrado::$CARD_ID"
+          else
+            echo "::warning title=Card não encontrado::Adicione no PR: Relates to: https://trello.com/c/abc123xyz"
+          fi
+
+      # 2. Mover para TESTS se PR for para release/testing
+      - name: 🟡 Mover para TESTS (release/testing)
+        if: github.event.pull_request.target.ref == 'release/testing' && env.CARD_ID != ''
+        run: |
+          echo "🚚 Movendo card ${{ env.CARD_ID }} para TESTS..."
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?idList=${{ env.LIST_TESTS_ID }}&key=any&token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 3. Mover para ✅ Done se PR for mergiado no main
+      - name: 🟢 Mover para ✅ Done (merge no main)
+        if: github.event.pull_request.merged == true && github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
+        run: |
+          echo "✅ Movendo card ${{ env.CARD_ID }} para DONE..."
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?idList=${{ env.LIST_DONE_ID }}&key=any&token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 4. Atualizar descrição do card com link do PR
+      - name: 🔄 Atualizar descrição do card
+        if: env.CARD_ID != '' && github.event.action != 'closed'
+        run: |
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}?key=any&token=${{ secrets.TRELLO_TOKEN }}" \
+          --data-urlencode "desc=🔧 **Pull Request #${{ github.event.number }} (${{ github.event.action }})**  
+          🔗 [Acessar PR](${{ github.event.pull_request.html_url }})  
+          📝 *${{ github.event.pull_request.title }}*  
+          👤 por @${{ github.actor }}  
+          📅 ${{ github.event.pull_request.updated_at }}
+
+          Este card está vinculado à automação do GitHub Actions."
+
+      # 5. Criar card para nova issue com label 'bug'
+      - name: 🐛 Criar card para bug
+        if: github.event_name == 'issues' && github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')
+        run: |
+          echo "🆕 Criando card para bug..."
+          curl -X POST "https://api.trello.com/1/cards?key=any&token=${{ secrets.TRELLO_TOKEN }}" \
+          --data-urlencode "name=[BUG] ${{ github.event.issue.title }}" \
+          --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}" \
+          --data-urlencode "idList=${{ env.LIST_BUGS_ID }}"
+
+      # 6. Notificar falha na CI
+      - name: ❌ Notificar falha na CI
+        if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure'
+        run: |
+          echo "🚨 Falha na CI detectada"
+          # Opcional: buscar CARD_ID de um card fixo de monitoramento
+          curl -X POST "https://api.trello.com/1/cards/${{ secrets.MONITORING_CARD_ID }}/actions/comments?key=any&token=${{ secrets.TRELLO_TOKEN }}" \
+          --data-urlencode "text=❌ Falha na CI: ${{ github.event.workflow_run.name }}\n➡️ [Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }})"
+
+      # 7. Registrar localmente se Trello falhar
+      - name: 📝 Fallback - Registrar localmente se Trello falhar
+        if: failure()
+        run: |
+          mkdir -p logs
+          echo "GH_ACTION=move_to_tests" >> $GITHUB_ENV
+          echo "GH_PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+          echo "GH_PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          echo "GH_TARGET_BRANCH=${{ github.event.pull_request.target.ref }}" >> $GITHUB_ENV
+          node scripts/fallback-log.js
