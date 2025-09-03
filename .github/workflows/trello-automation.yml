@@ -1,4 +1,4 @@
-name: 🔄 GitHub + Trello Automation
+name: 🔄 GitHub + Trello Automation (com vínculo de bugs)
 
 on:
   pull_request:
@@ -65,6 +65,27 @@ jobs:
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
+          # 🔗 Buscar e mover bugs vinculados ao card pai
+          echo "🔗 Buscando bugs vinculados ao card pai..."
+          # Extrai CARD_IDs de comentários no card (ex: "Bug relacionado: abc123")
+          # Simula busca por cards filhos no Trello (via nome ou desc)
+          # Neste exemplo, assume-se que o bug foi criado com "[BUG] [Pai: kz7q1L3x] ..."
+          # Você pode ajustar conforme o padrão usado
+
+          # Busca todos os cards na lista de bugs
+          BUGS_RESPONSE=$(curl -s "https://api.trello.com/1/lists/${{ env.LIST_BUGS_ID }}/cards?key=${{ secrets.TRELLO_API_KEY }}&token=${{ secrets.TRELLO_TOKEN }}")
+
+          # Extrai IDs dos cards que mencionam o CARD_ID pai
+          echo "$BUGS_RESPONSE" | jq -r --arg PARENT_ID "${{ env.CARD_ID }}" '.[] | select(.name | contains($PARENT_ID) or .desc | contains($PARENT_ID)) | .id' | while read BUG_ID; do
+            if [ -n "$BUG_ID" ]; then
+              echo "🚚 Movendo bug vinculado $BUG_ID para DONE..."
+              curl -X PUT "https://api.trello.com/1/cards/$BUG_ID" \
+                --data-urlencode "idList=${{ env.LIST_DONE_ID }}" \
+                --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+                --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+            fi
+          done
+
       # 📝 Atualizar descrição com link do deploy
       - name: 📝 Atualizar descrição com link do deploy
         if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
@@ -95,9 +116,20 @@ jobs:
         if: github.event_name == 'issues' && github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')
         run: |
           echo "🆕 Criando card para bug..."
+          # Extrai CARD_ID da task pai (opcional: do corpo da issue)
+          PARENT_CARD_ID=""
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          # Exemplo: "Relates to: https://trello.com/c/kz7q1L3x"
+          if echo "$ISSUE_BODY" | grep -qE 'https://trello.com/c/[a-zA-Z0-9]+'; then
+            PARENT_CARD_ID=$(echo "$ISSUE_BODY" | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1 | awk -F'/' '{print $5}')
+            BUG_NAME="[BUG] [Pai: $PARENT_CARD_ID] ${{ github.event.issue.title }}"
+          else
+            BUG_NAME="[BUG] ${{ github.event.issue.title }}"
+          fi
+
           curl -X POST "https://api.trello.com/1/cards" \
-            --data-urlencode "name=[BUG] ${{ github.event.issue.title }}" \
-            --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}" \
+            --data-urlencode "name=$BUG_NAME" \
+            --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: $PARENT_CARD_ID" \
             --data-urlencode "idList=${{ env.LIST_BUGS_ID }}" \
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"

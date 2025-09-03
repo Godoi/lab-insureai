@@ -1,0 +1,42 @@
+name: 🔒 Validar Relates to na Issue
+
+permissions:
+  issues: write
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔍 Verificar se "Relates to" está presente
+        run: |
+          echo "🔍 Validando campo 'Relates to'..."
+          BODY="${{ github.event.issue.body }}"
+          if echo "$BODY" | grep -qE 'Relates[[:space:]]*to:[^a-zA-Z0-9]*https://trello\.com/c/[a-zA-Z0-9]\+'; then
+            echo "✅ Campo 'Relates to' encontrado!"
+          else
+            echo "::error::❌ Falha: Campo 'Relates to' obrigatório."
+            echo "::error::💡 Exemplo: \`Relates to: https://trello.com/c/kz7q1L3x\`"
+            exit 1
+          fi
+
+      - name: 🚫 Fechar issue sem vínculo ao Trello
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Esta issue foi fechada porque o campo **Relates to** não foi preenchido.\n\n➡️ Por favor, reabra com o link do card do Trello: `Relates to: https://trello.com/c/...`'
+            });
+            await github.rest.issues.update({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed'
+            });

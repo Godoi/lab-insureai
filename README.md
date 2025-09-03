@@ -6,7 +6,7 @@
 ![.NET](https://img.shields.io/badge/.NET-7.0-purple)
 ![OpenAI](https://img.shields.io/badge/OpenAI-API-green)
 ![Trello](https://img.shields.io/badge/Project%20Management-Trello-orange)
-
+![Vínculo Trello](https://img.shields.io/badge/Issues-%F0%9F%94%97%20Vinculadas%20ao%20Trello-blue?logo=trello&color=0079bf)
 ---
 
 ## 🎯 Objetivo
