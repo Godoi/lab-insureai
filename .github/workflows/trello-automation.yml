@@ -40,9 +40,12 @@ jobs:
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
         run: |
           echo "🔍 Procurando link do Trello no PR..."
-          CARD_URL=$(echo "${{github.event.pull_request.body}}" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
+          # Regex flexível: aceita maiúsculas, minúsculas, %, e qualquer sufixo
+          CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9%]+(/[a-zA-Z0-9%\-]+)*' | head -1)
+          
           if [ -n "$CARD_URL" ]; then
-            CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
+            # Extrai apenas o ID (7-8 caracteres após /c/)
+            CARD_ID=$(echo "$CARD_URL" | sed -E 's|https://trello\.com/c/([a-zA-Z0-9]+).*|\1|')
             echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
             echo "::notice title=Card encontrado::$CARD_ID"
           else
