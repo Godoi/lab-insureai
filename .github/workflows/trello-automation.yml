@@ -37,6 +37,7 @@ jobs:
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
         run: |
           echo "🔍 Procurando link do Trello no PR..."
+          # ✅ Regex sem espaços extras
           CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1)
           if [ -n "$CARD_URL" ]; then
             CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
@@ -51,6 +52,7 @@ jobs:
         if: (github.event.pull_request.target.ref == 'release/testing' || github.base_ref == 'release/testing') && env.CARD_ID != ''
         run: |
           echo "🚚 Movendo card ${{ env.CARD_ID }} para TESTS..."
+          # ✅ URL sem espaços extras
           curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
             --data-urlencode "idList=${{ env.LIST_TESTS_ID }}" \
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
@@ -63,6 +65,31 @@ jobs:
           echo "✅ Movendo card ${{ env.CARD_ID }} para DONE..."
           curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
             --data-urlencode "idList=${{ env.LIST_DONE_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 📝 Atualizar descrição com link do deploy
+      - name: 📝 Atualizar descrição com link do deploy
+        if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
+        run: |
+          DESCRIPTION="✅ **Tarefa concluída e implantada em produção**\n\n"
+          DESCRIPTION+="🔗 [Pull Request #${{ github.event.number }}](${{ github.event.pull_request.html_url }})\n"
+          DESCRIPTION+="📅 ${{ github.event.pull_request.merged_at }}\n"
+          DESCRIPTION+="👤 por @${{ github.actor }}\n\n"
+          DESCRIPTION+="---\nEste card foi atualizado automaticamente pela integração GitHub + Trello."
+
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+            --data-urlencode "desc=$DESCRIPTION" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 💬 Notificar conclusão no Trello
+      - name: 💬 Notificar conclusão no Trello
+        if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
+        run: |
+          echo "💬 Notificando conclusão no card ${{ env.CARD_ID }}..."
+          curl -X POST "https://api.trello.com/1/cards/${{ env.CARD_ID }}/actions/comments" \
+            --data-urlencode "text=✅ Tarefa concluída e movida para DONE via automação do GitHub Actions. PR: ${{ github.event.pull_request.html_url }}" \
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
@@ -88,7 +115,7 @@ jobs:
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 📝 Fallback: Registrar localmente se falhar
+      # 📝 Fallback: Registrar erro localmente
       - name: 📝 Fallback - Registrar erro localmente
         if: failure()
         run: |
