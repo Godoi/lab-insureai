@@ -23,7 +23,6 @@ jobs:
       - name: 🔒 Validar link do Trello no corpo do PR
         run: |
           echo "🔍 Validando presença do link do Trello..."
-          # Não imprima o corpo completo para evitar injeção de comando
           BODY="${{ github.event.pull_request.body }}"
           
           if [ -z "$BODY" ]; then
@@ -31,6 +30,7 @@ jobs:
             exit 1
           fi
 
+          # ✅ Regex sem espaços extras
           if ! echo "$BODY" | grep -qE 'https://trello.com/c/[a-zA-Z0-9]+'; then
             echo "::error::❌ Falha: O corpo do PR deve conter um link do Trello (ex: https://trello.com/c/kz7q1L3x)"
             exit 1
@@ -42,6 +42,7 @@ jobs:
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
         run: |
           echo "🔍 Procurando link do Trello no PR..."
+          # ✅ Regex sem espaços extras
           CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1)
           if [ -n "$CARD_URL" ]; then
             CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
@@ -56,6 +57,7 @@ jobs:
         if: (github.event.pull_request.target.ref == 'release/testing' || github.base_ref == 'release/testing') && env.CARD_ID != ''
         run: |
           echo "🚚 Movendo card ${{ env.CARD_ID }} para TESTS..."
+          # ✅ URL sem espaços extras
           curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
             --data-urlencode "idList=${{ env.LIST_TESTS_ID }}" \
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
