@@ -17,14 +17,12 @@ jobs:
       - name: 🔍 Verificar se "Relates to" está presente
         run: |
           echo "🔍 Validando campo 'Relates to'..."
-          BODY="${{ github.event.issue.body }}"
+          BODY=$(echo "${{ github.event.issue.body }}" | tr -d '\r\n')
 
-          # Regex flexível: case-insensitive, aceita múltiplos espaços, : e caracteres especiais
-          if echo "$BODY" | grep -qiE 'relates[[:space:]]*to[^\n]*https://trello\.com/c/[a-zA-Z0-9]\+'; then
-            echo "✅ Campo 'Relates to' encontrado!"
+          if echo "$BODY" | grep -qiE 'https://trello\.com/c/[a-zA-Z0-9]+'; then
+            echo "✅ Link do Trello encontrado!"
           else
             echo "::error::❌ Falha: Campo 'Relates to' obrigatório."
-            echo "::error::💡 Exemplo: \`Relates to: https://trello.com/c/tC9X6H1f\`"
             exit 1
           fi
 
@@ -45,4 +43,3 @@ jobs:
               repo: context.repo.repo,
               state: 'closed'
             });
-            
