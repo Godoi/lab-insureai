@@ -12,58 +12,12 @@ Descreva de forma clara o comportamento incorreto do sistema.
 
 ---
 
-## 🔗 Vincular à Task no Trello
+## ⚠️ Obrigatório para a automação funcionar
+Cole o link do card do Trello relacionado ao PR:
 
-> ⚠️ **Essencial para automação funcionar**
-
-Cole o link da task pai no Trello (ex: onde o erro ocorreu):
-
-Relates to: https://trello.com/c/kz7q1L3x
+Relates to: https://trello.com/c/
 
 
-> 🔗 Substitua `kz7q1L3x` pelo ID do card.
-
-➡️ Isso permite que:
-- O card de bug seja criado automaticamente
-- O bug seja movido junto com a task pai ao ser resolvido
+🔗 Substitua `kz7q1L3x` pelo ID do card.
 
 ---
-
-## 🔁 Passos para Reproduzir
-
-1. 
-2. 
-3.
-
----
-
-## 🌍 Ambiente
-
-- Sistema: (ex: Windows, macOS)
-- Navegador: (ex: Chrome, Firefox)
-- Versão do .NET: 
-- Node.js: 
-
----
-
-## 📎 Resultado Atual
-
-Descreva o que está acontecendo de errado.
-
----
-
-## 🎯 Resultado Esperado
-
-Descreva o que deveria acontecer.
-
----
-
-## 📸 Captura de Tela (opcional)
-
-![](link-para-imagem.png)
-
----
-
-## 💬 Comentários Adicionais
-
-Algum contexto adicional, log de erro ou sugestão de correção?
