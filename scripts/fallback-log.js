@@ -2,27 +2,25 @@
 const fs = require('fs');
 const path = require('path');
 
-// Dados do evento (vindos do GitHub Actions)
-const eventData = {
-  action: process.env.GH_ACTION || 'unknown',
-  pr_number: process.env.GH_PR_NUMBER || null,
-  pr_title: process.env.GH_PR_TITLE || 'Sem título',
-  target_branch: process.env.GH_TARGET_BRANCH || 'unknown',
-  card_id: process.env.TRELLO_CARD_ID || 'n/a',
-  timestamp: new Date().toISOString(),
-  status: 'Trello unreachable - fallback ativado'
-};
+const logDir = path.join(__dirname, '../logs');
+const logFile = path.join(logDir, 'trello-fallback.log');
 
-// Caminho do log
-const logFile = path.join(__dirname, '..', 'logs', 'trello-fallback.json');
-
-// Cria diretório se não existir
-if (!fs.existsSync(path.dirname(logFile))) {
-  fs.mkdirSync(path.dirname(logFile), { recursive: true });
+// Cria a pasta logs se não existir
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
 }
 
-// Salva o log
-fs.appendFileSync(logFile, JSON.stringify(eventData) + '\n', 'utf-8');
+// Lê variáveis do ambiente
+const prNumber = process.env.GH_PR_NUMBER || 'unknown';
+const prTitle = process.env.GH_PR_TITLE || 'unknown';
+const targetBranch = process.env.GH_TARGET_BRANCH || 'unknown';
+const timestamp = new Date().toISOString();
 
-console.log(`📝 Fallback log salvo: ${logFile}`);
-console.log(`➡️ Ação: ${eventData.action} na branch ${eventData.target_branch}`);
+// Gera o log
+const logEntry = `[FALLBACK ${timestamp}] PR #${prNumber} "${prTitle}" para ${targetBranch}\n`;
+
+// Salva no arquivo
+fs.appendFileSync(logFile, logEntry, 'utf8');
+
+console.log(`✅ Log salvo: ${logFile}`);
+console.log(logEntry.trim());

@@ -23,10 +23,14 @@ jobs:
       - name: 🔒 Validar link do Trello no corpo do PR
         if: github.event_name == 'pull_request'
         run: |
+          echo "🔍 Validando presença do link do Trello..."
+          echo "Corpo do PR: ${{ github.event.pull_request.body }}"
           BODY="${{ github.event.pull_request.body }}"
           if ! echo "$BODY" | grep -qE 'https://trello.com/c/[a-zA-Z0-9]+'; then
             echo "::error::❌ Falha: O corpo do PR deve conter um link do Trello (ex: https://trello.com/c/kz7q1L3x)"
             exit 1
+          else
+            echo "✅ Link do Trello encontrado"
           fi
 
       # 🧹 Extrair CARD_ID do link no corpo do PR
