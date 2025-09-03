@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: TRELLO_API
     env:
-      LIST_TESTS_ID: ${{ vars.TRELLO_LIST_TESTS_ID }}
-      LIST_DONE_ID: ${{ vars.TRELLO_LIST_DONE_ID }}
-      LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
+      LIST_TESTS_ID: ${{vars.TRELLO_LIST_TESTS_ID}}
+      LIST_DONE_ID: ${{vars.TRELLO_LIST_DONE_ID}}
+      LIST_BUGS_ID: ${{vars.TRELLO_LIST_BUGS_ID}}
 
     steps:
       # 🔧 Instalar jq (necessário para processar JSON)
@@ -28,7 +28,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           echo "🔍 Validando presença do link do Trello..."
-          BODY="${{ github.event.pull_request.body }}"
+          BODY="${{github.event.pull_request.body}}"
           if ! echo "$BODY" | grep -qiE 'https://trello\.com/c/[a-zA-Z0-9%]+'; then
             echo "::error::❌ Falha: O corpo do PR deve conter um link do Trello (ex: https://trello.com/c/kz7q1L3x)"
             exit 1
@@ -40,7 +40,7 @@ jobs:
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
         run: |
           echo "🔍 Procurando link do Trello no PR..."
-          CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
+          CARD_URL=$(echo "${{github.event.pull_request.body}}" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
           if [ -n "$CARD_URL" ]; then
             CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
             echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
@@ -53,33 +53,33 @@ jobs:
       - name: 🟡 Mover para TESTS (release/testing)
         if: (github.event.pull_request.target.ref == 'release/testing' || github.base_ref == 'release/testing') && env.CARD_ID != ''
         run: |
-          echo "🚚 Movendo card ${{ env.CARD_ID }} para TESTS..."
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
-            --data-urlencode "idList=${{ env.LIST_TESTS_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+          echo "🚚 Movendo card ${{env.CARD_ID}} para TESTS..."
+          curl -X PUT "https://api.trello.com/1/cards/${{env.CARD_ID}}" \
+            --data-urlencode "idList=${{env.LIST_TESTS_ID}}" \
+            --data-urlencode "key=${{secrets.TRELLO_API_KEY}}" \
+            --data-urlencode "token=${{secrets.TRELLO_TOKEN}}"
 
       # 🟢 Mover para ✅ Done se PR for mergiado no main
       - name: 🟢 Mover para ✅ Done (merge no main)
         if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
         run: |
-          echo "✅ Movendo card ${{ env.CARD_ID }} para DONE..."
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
-            --data-urlencode "idList=${{ env.LIST_DONE_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+          echo "✅ Movendo card ${{env.CARD_ID}} para DONE..."
+          curl -X PUT "https://api.trello.com/1/cards/${{env.CARD_ID}}" \
+            --data-urlencode "idList=${{env.LIST_DONE_ID}}" \
+            --data-urlencode "key=${{secrets.TRELLO_API_KEY}}" \
+            --data-urlencode "token=${{secrets.TRELLO_TOKEN}}"
 
           # 🔗 Buscar e mover bugs vinculados ao card pai
           echo "🔗 Buscando bugs vinculados ao card pai..."
-          BUGS_RESPONSE=$(curl -s "https://api.trello.com/1/lists/${{ env.LIST_BUGS_ID }}/cards?key=${{ secrets.TRELLO_API_KEY }}&token=${{ secrets.TRELLO_TOKEN }}")
+          BUGS_RESPONSE=$(curl -s "https://api.trello.com/1/lists/${{env.LIST_BUGS_ID}}/cards?key=${{secrets.TRELLO_API_KEY}}&token=${{secrets.TRELLO_TOKEN}}")
 
-          echo "$BUGS_RESPONSE" | jq -r --arg PARENT_ID "${{ env.CARD_ID }}" '.[] | select(.name | contains($PARENT_ID) or .desc | contains($PARENT_ID)) | .id' | while read BUG_ID; do
+          echo "$BUGS_RESPONSE" | jq -r --arg PARENT_ID "${{env.CARD_ID}}" '.[] | select(.name | contains($PARENT_ID) or .desc | contains($PARENT_ID)) | .id' | while read BUG_ID; do
             if [ -n "$BUG_ID" ]; then
               echo "🚚 Movendo bug vinculado $BUG_ID para DONE..."
               curl -X PUT "https://api.trello.com/1/cards/$BUG_ID" \
-                --data-urlencode "idList=${{ env.LIST_DONE_ID }}" \
-                --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-                --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+                --data-urlencode "idList=${{env.LIST_DONE_ID}}" \
+                --data-urlencode "key=${{secrets.TRELLO_API_KEY}}" \
+                --data-urlencode "token=${{secrets.TRELLO_TOKEN}}"
             fi
           done
 
@@ -88,25 +88,25 @@ jobs:
         if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
         run: |
           DESCRIPTION="✅ **Tarefa concluída e implantada em produção**\n\n"
-          DESCRIPTION+="🔗 [Pull Request #${{ github.event.number }}](${{ github.event.pull_request.html_url }})\n"
-          DESCRIPTION+="📅 ${{ github.event.pull_request.merged_at }}\n"
-          DESCRIPTION+="👤 por @${{ github.actor }}\n\n"
+          DESCRIPTION+="🔗 [Pull Request #${{github.event.number}}](${{github.event.pull_request.html_url}})\n"
+          DESCRIPTION+="📅 ${{github.event.pull_request.merged_at}}\n"
+          DESCRIPTION+="👤 por @${{github.actor}}\n\n"
           DESCRIPTION+="---\nEste card foi atualizado automaticamente pela integração GitHub + Trello."
 
-          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+          curl -X PUT "https://api.trello.com/1/cards/${{env.CARD_ID}}" \
             --data-urlencode "desc=$DESCRIPTION" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+            --data-urlencode "key=${{secrets.TRELLO_API_KEY}}" \
+            --data-urlencode "token=${{secrets.TRELLO_TOKEN}}"
 
       # 💬 Notificar conclusão no Trello
       - name: 💬 Notificar conclusão no Trello
         if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
         run: |
-          echo "💬 Notificando conclusão no card ${{ env.CARD_ID }}..."
-          curl -X POST "https://api.trello.com/1/cards/${{ env.CARD_ID }}/actions/comments" \
-            --data-urlencode "text=✅ Tarefa concluída e movida para DONE via automação do GitHub Actions. PR: ${{ github.event.pull_request.html_url }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+          echo "💬 Notificando conclusão no card ${{env.CARD_ID}}..."
+          curl -X POST "https://api.trello.com/1/cards/${{env.CARD_ID}}/actions/comments" \
+            --data-urlencode "text=✅ Tarefa concluída e movida para DONE via automação do GitHub Actions. PR: ${{github.event.pull_request.html_url}}" \
+            --data-urlencode "key=${{secrets.TRELLO_API_KEY}}" \
+            --data-urlencode "token=${{secrets.TRELLO_TOKEN}}"
 
       # 🐛 Criar card para nova issue com label 'bug'
       - name: 🐛 Criar card para bug
@@ -114,30 +114,30 @@ jobs:
         run: |
           echo "🆕 Criando card para bug..."
           PARENT_CARD_ID=""
-          ISSUE_BODY="${{ github.event.issue.body }}"
+          ISSUE_BODY="${{github.event.issue.body}}"
           if echo "$ISSUE_BODY" | grep -qiE 'https://trello\.com/c/[a-zA-Z0-9]+'; then
             PARENT_CARD_ID=$(echo "$ISSUE_BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1 | awk -F'/' '{print $5}')
-            BUG_NAME="[BUG] [Pai: $PARENT_CARD_ID] ${{ github.event.issue.title }}"
+            BUG_NAME="[BUG] [Pai: $PARENT_CARD_ID] ${{github.event.issue.title}}"
           else
-            BUG_NAME="[BUG] ${{ github.event.issue.title }}"
+            BUG_NAME="[BUG] ${{github.event.issue.title}}"
           fi
 
           curl -X POST "https://api.trello.com/1/cards" \
             --data-urlencode "name=$BUG_NAME" \
-            --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: $PARENT_CARD_ID" \
-            --data-urlencode "idList=${{ env.LIST_BUGS_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+            --data-urlencode "desc=Reportado no GitHub: ${{github.event.issue.html_url}}\n\n${{github.event.issue.body}}\n\n🔗 Vinculado à task: $PARENT_CARD_ID" \
+            --data-urlencode "idList=${{env.LIST_BUGS_ID}}" \
+            --data-urlencode "key=${{secrets.TRELLO_API_KEY}}" \
+            --data-urlencode "token=${{secrets.TRELLO_TOKEN}}"
 
       # 🔄 Notificar no card se o PR for atualizado (synchronize)
       - name: 🔄 Notificar atualização no PR
         if: github.event.action == 'synchronize' && env.CARD_ID != ''
         run: |
-          echo "🔄 Notificando atualização no card ${{ env.CARD_ID }}..."
-          curl -X POST "https://api.trello.com/1/cards/${{ env.CARD_ID }}/actions/comments" \
-            --data-urlencode "text=🔄 PR atualizado: [Acessar PR](${{ github.event.pull_request.html_url }}) por @${{ github.actor }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+          echo "🔄 Notificando atualização no card ${{env.CARD_ID}}..."
+          curl -X POST "https://api.trello.com/1/cards/${{env.CARD_ID}}/actions/comments" \
+            --data-urlencode "text=🔄 PR atualizado: [Acessar PR](${{github.event.pull_request.html_url}}) por @${{github.actor}}" \
+            --data-urlencode "key=${{secrets.TRELLO_API_KEY}}" \
+            --data-urlencode "token=${{secrets.TRELLO_TOKEN}}"
 
       # 📝 Fallback: Registrar erro localmente
       - name: 📝 Fallback - Registrar erro localmente
@@ -145,9 +145,9 @@ jobs:
         run: |
           mkdir -p logs
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S")
-          PR_NUM=${{ github.event.number }}
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          TARGET_BRANCH="${{ github.event.pull_request.target.ref }}"
+          PR_NUM=${{github.event.number}}
+          PR_TITLE="${{github.event.pull_request.title}}"
+          TARGET_BRANCH="${{github.event.pull_request.target.ref}}"
           
           echo "[$TIMESTAMP] FALHA: PR #$PR_NUM '$PR_TITLE' para $TARGET_BRANCH" >> logs/trello-fallback.log
           echo "Erro na automação Trello. Verifique os logs do workflow." >> logs/trello-fallback.log
@@ -155,4 +155,3 @@ jobs:
           
           echo "✅ Fallback log salvo em: logs/trello-fallback.log"
           cat logs/trello-fallback.log
-          
