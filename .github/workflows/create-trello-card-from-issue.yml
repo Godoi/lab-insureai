@@ -1,0 +1,54 @@
+name: 🃏 Criar Card no Trello a partir da Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-card:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.body, 'Relates to:') || contains(github.event.issue.labels.*.name, 'bug') || contains(github.event.issue.labels.*.name, 'enhancement')
+
+    steps:
+      - name: 🔍 Extrair CARD_ID do corpo da issue
+        id: extract
+        run: |
+          echo "🔍 Procurando 'Relates to' na issue..."
+          BODY="${{ github.event.issue.body }}"
+          RELATES_URL=$(echo "$BODY" | grep -oE 'Relates to:[^\S\n]*https://trello.com/c/[a-zA-Z0-9]+' | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1)
+
+          if [ -n "$RELATES_URL" ]; then
+            PARENT_ID=$(echo "$RELATES_URL" | awk -F'/' '{print $5}')
+            echo "PARENT_ID=$PARENT_ID" >> $GITHUB_ENV
+            echo "::notice title=Task pai encontrada::$PARENT_ID"
+          else
+            echo "::warning title=Sem vínculo::Nenhuma task do Trello vinculada."
+          fi
+
+      - name: 🐛 Criar card para bug
+        if: contains(github.event.issue.labels.*.name, 'bug')
+        run: |
+          NAME="[BUG]"
+          if [ -n "${{ env.PARENT_ID }}" ]; then
+            NAME="$NAME [Pai: ${{ env.PARENT_ID }}]"
+          fi
+          NAME="$NAME ${{ github.event.issue.title }}"
+
+          curl -X POST "https://api.trello.com/1/cards" \
+            --data-urlencode "name=$NAME" \
+            --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
+            --data-urlencode "idList=${{ vars.TRELLO_LIST_BUGS_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      - name: 🚀 Criar card para feature
+        if: contains(github.event.issue.labels.*.name, 'enhancement') && env.PARENT_ID != ''
+        run: |
+          NAME="[FEAT] [Pai: ${{ env.PARENT_ID }}] ${{ github.event.issue.title }}"
+
+          curl -X POST "https://api.trello.com/1/cards" \
+            --data-urlencode "name=$NAME" \
+            --data-urlencode "desc=Planejado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
+            --data-urlencode "idList=${{ vars.TRELLO_LIST_TODO_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
