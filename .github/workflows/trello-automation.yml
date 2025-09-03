@@ -89,11 +89,18 @@ jobs:
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 📝 Fallback: Registrar localmente se falhar
-      - name: 📝 Fallback - Registrar localmente se Trello falhar
+      - name: 📝 Fallback - Registrar erro localmente
         if: failure()
         run: |
           mkdir -p logs
-          echo "GH_PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
-          echo "GH_PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-          echo "GH_TARGET_BRANCH=${{ github.event.pull_request.target.ref }}" >> $GITHUB_ENV
-          node scripts/fallback-log.js
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S")
+          PR_NUM=${{ github.event.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          TARGET_BRANCH="${{ github.event.pull_request.target.ref }}"
+          
+          echo "[$TIMESTAMP] FALHA: PR #$PR_NUM '$PR_TITLE' para $TARGET_BRANCH" >> logs/trello-fallback.log
+          echo "Erro na automação Trello. Verifique os logs do workflow." >> logs/trello-fallback.log
+          echo "---" >> logs/trello-fallback.log
+          
+          echo "✅ Fallback log salvo em: logs/trello-fallback.log"
+          cat logs/trello-fallback.log
