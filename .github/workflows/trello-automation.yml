@@ -24,7 +24,6 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           echo "🔍 Validando presença do link do Trello..."
-          echo "Corpo do PR: ${{ github.event.pull_request.body }}"
           BODY="${{ github.event.pull_request.body }}"
           if ! echo "$BODY" | grep -qE 'https://trello.com/c/[a-zA-Z0-9]+'; then
             echo "::error::❌ Falha: O corpo do PR deve conter um link do Trello (ex: https://trello.com/c/kz7q1L3x)"
@@ -66,6 +65,31 @@ jobs:
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
+      # 📝 Atualizar descrição com link do deploy
+      - name: 📝 Atualizar descrição com link do deploy
+        if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
+        run: |
+          DESCRIPTION="✅ **Tarefa concluída e implantada em produção**\n\n"
+          DESCRIPTION+="🔗 [Pull Request #${{ github.event.number }}](${{ github.event.pull_request.html_url }})\n"
+          DESCRIPTION+="📅 ${{ github.event.pull_request.merged_at }}\n"
+          DESCRIPTION+="👤 por @${{ github.actor }}\n\n"
+          DESCRIPTION+="---\nEste card foi atualizado automaticamente pela integração GitHub + Trello."
+
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+            --data-urlencode "desc=$DESCRIPTION" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 💬 Notificar conclusão no Trello
+      - name: 💬 Notificar conclusão no Trello
+        if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
+        run: |
+          echo "💬 Notificando conclusão no card ${{ env.CARD_ID }}..."
+          curl -X POST "https://api.trello.com/1/cards/${{ env.CARD_ID }}/actions/comments" \
+            --data-urlencode "text=✅ Tarefa concluída e movida para DONE via automação do GitHub Actions. PR: ${{ github.event.pull_request.html_url }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
       # 🐛 Criar card para nova issue com label 'bug'
       - name: 🐛 Criar card para bug
         if: github.event_name == 'issues' && github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')
@@ -88,7 +112,7 @@ jobs:
             --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 📝 Fallback: Registrar localmente se falhar
+      # 📝 Fallback: Registrar erro localmente
       - name: 📝 Fallback - Registrar erro localmente
         if: failure()
         run: |
