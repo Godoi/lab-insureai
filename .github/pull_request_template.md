@@ -1,7 +1,8 @@
-<!-- 
-⚠️ ATENÇÃO: Este template é essencial para a automação funcionar.
-Seu PR será vinculado ao Trello e acionará a movimentação do card.
--->
+
+## ⚠️ Obrigatório para a automação funcionar
+Cole o link do card do Trello relacionado ao PR:
+
+Relates to: https://trello.com/c/
 
 ## 📝 Descrição da Mudança
 
@@ -13,14 +14,6 @@ Exemplos:
 - Adição do chatbot com IA
 
 ---
-
-## 🔗 Vinculação com o Trello
-
-> ⚠️ **Obrigatório para a automação funcionar**
-
-Cole o link do card do Trello relacionado ao PR:
-
-Relates to: https://trello.com/c/
 
 ## 🧪 Testes Realizados
 
