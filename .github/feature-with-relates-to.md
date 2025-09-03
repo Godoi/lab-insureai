@@ -12,38 +12,9 @@ Descreva o que a nova funcionalidade deve fazer.
 
 ---
 
-## 🔗 Vincular à Task no Trello
+## ⚠️ Obrigatório para a automação funcionar
+Cole o link do card do Trello relacionado ao PR:
 
-> ⚠️ **Obrigatório para integração com automação**
+Relates to: https://trello.com/c/
 
-Cole o link da task no Trello:
-Relates to: https://trello.com/c/kz7q1L3x
-
-
-> 🔗 Substitua `kz7q1L3x` pelo ID do card.
-
-➡️ Assim, a automação pode:
-- Criar ou atualizar o card
-- Mover o card ao longo do fluxo
-
----
-
-## 🧩 Escopo
-
-- [ ] Tarefa 1
-- [ ] Tarefa 2
-- [ ] Tarefa 3
-
----
-
-## 📎 Benefícios
-
-- Melhora UX
-- Aumenta desempenho
-- Facilita manutenção
-
----
-
-## 💬 Comentários Adicionais
-
-Alguma referência, exemplo ou detalhe técnico?
+🔗 Substitua `kz7q1L3x` pelo ID do card.
