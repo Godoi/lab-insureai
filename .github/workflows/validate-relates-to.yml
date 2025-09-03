@@ -1,11 +1,14 @@
 name: 🔒 Validar Relates to na Issue
 
+# Permissão para fechar issues
 permissions:
   issues: write
 
+# Gatilhos: issue aberta/editada + execução manual
 on:
   issues:
     types: [opened, edited]
+  workflow_dispatch:  # 👈 Permite execução manual no GitHub
 
 jobs:
   validate:
@@ -13,17 +16,15 @@ jobs:
     steps:
       - name: 🔍 Verificar se "Relates to" está presente
         run: |
-          echo "🔍 Validando campo 'Relates to' no corpo da issue..."
-          
-          # Escapa a variável para evitar problemas com caracteres especiais
-          BODY=$(echo "${{ github.event.issue.body }}" | tr -d '\r')
+          echo "🔍 Validando campo 'Relates to'..."
+          BODY="${{ github.event.issue.body }}"
 
-          # Regex flexível: aceita espaços, : após to, e caracteres codificados (%)
-          if echo "$BODY" | grep -qiE 'relates[[:space:]]*to[^\n]*https://trello\.com/c/[a-zA-Z0-9%]+'; then
+          # Regex flexível: case-insensitive, aceita múltiplos espaços, : e caracteres especiais
+          if echo "$BODY" | grep -qiE 'relates[[:space:]]*to[^\n]*https://trello\.com/c/[a-zA-Z0-9]\+'; then
             echo "✅ Campo 'Relates to' encontrado!"
           else
             echo "::error::❌ Falha: Campo 'Relates to' obrigatório."
-            echo "::error::💡 Exemplo: \`Relates to: https://trello.com/c/kz7q1L3x\`"
+            echo "::error::💡 Exemplo: \`Relates to: https://trello.com/c/tC9X6H1f\`"
             exit 1
           fi
 
