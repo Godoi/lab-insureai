@@ -37,8 +37,7 @@ Este projeto foi desenvolvido com boas práticas de engenharia de software:
 
 Organizado com **Trello** para rastrear tarefas, integração com GitHub e transparência no desenvolvimento.
 
-👉 [Acesse o quadro do Trello](https://trello.com/insureai)  
-*(Substitua pelo link real do seu quadro)*
+👉 [Acesse o quadro do Trello](https://trello.com/b/XZ3jv7DX/insure-ai)  
 
 ### Exemplo de integração:
 - Cada funcionalidade tem um **card no Trello**
@@ -58,5 +57,4 @@ Organizado com **Trello** para rastrear tarefas, integração com GitHub e trans
 ```bash
 git clone https://github.com/seu-usuario/insureai.git
 cd insureai
-
 
