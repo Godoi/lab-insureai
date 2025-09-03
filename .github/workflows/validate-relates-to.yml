@@ -13,9 +13,13 @@ jobs:
     steps:
       - name: 🔍 Verificar se "Relates to" está presente
         run: |
-          echo "🔍 Validando campo 'Relates to'..."
-          BODY="${{ github.event.issue.body }}"
-          if echo "$BODY" | grep -qE 'Relates[[:space:]]*to:[^a-zA-Z0-9]*https://trello\.com/c/[a-zA-Z0-9]\+'; then
+          echo "🔍 Validando campo 'Relates to' no corpo da issue..."
+          
+          # Escapa a variável para evitar problemas com caracteres especiais
+          BODY=$(echo "${{ github.event.issue.body }}" | tr -d '\r')
+
+          # Regex flexível: aceita espaços, : após to, e caracteres codificados (%)
+          if echo "$BODY" | grep -qiE 'relates[[:space:]]*to[^\n]*https://trello\.com/c/[a-zA-Z0-9%]+'; then
             echo "✅ Campo 'Relates to' encontrado!"
           else
             echo "::error::❌ Falha: Campo 'Relates to' obrigatório."
@@ -28,11 +32,11 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            github.rest.issues.createComment({
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '❌ Esta issue foi fechada porque o campo **Relates to** não foi preenchido.\n\n➡️ Por favor, reabra com o link do card do Trello: `Relates to: https://trello.com/c/...`'
+              body: '❌ Esta issue foi fechada porque o campo **Relates to** não foi preenchido.\n\n➡️ Por favor, reabra com o link do card do Trello:\n\n```\nRelates to: https://trello.com/c/kz7q1L3x\n```'
             });
             await github.rest.issues.update({
               issue_number: context.issue.number,
@@ -40,3 +44,4 @@ jobs:
               repo: context.repo.repo,
               state: 'closed'
             });
+            

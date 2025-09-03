@@ -1,7 +1,7 @@
 ---
 name: 🐞 Relatar Bug com Vínculo ao Trello
 about: Use este template para reportar um bug e vinculá-lo a uma task no Trello
-title: '[BUG] '
+title: '🐛[BUG] '
 labels: bug
 assignees: ''
 ---
