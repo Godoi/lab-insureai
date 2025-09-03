@@ -19,13 +19,17 @@ jobs:
       LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
 
     steps:
+      # 🔧 Instalar jq (necessário para processar JSON)
+      - name: Instalar jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       # 🔒 Validação: Impede merge se não houver link do Trello
       - name: 🔒 Validar link do Trello no corpo do PR
         if: github.event_name == 'pull_request'
         run: |
           echo "🔍 Validando presença do link do Trello..."
           BODY="${{ github.event.pull_request.body }}"
-          if ! echo "$BODY" | grep -qE 'https://trello.com/c/[a-zA-Z0-9]+'; then
+          if ! echo "$BODY" | grep -qiE 'https://trello\.com/c/[a-zA-Z0-9%]+'; then
             echo "::error::❌ Falha: O corpo do PR deve conter um link do Trello (ex: https://trello.com/c/kz7q1L3x)"
             exit 1
           else
@@ -36,7 +40,7 @@ jobs:
       - name: 🧹 Extrair TRELLO_CARD_ID do PR
         run: |
           echo "🔍 Procurando link do Trello no PR..."
-          CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1)
+          CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
           if [ -n "$CARD_URL" ]; then
             CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
             echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
@@ -67,15 +71,8 @@ jobs:
 
           # 🔗 Buscar e mover bugs vinculados ao card pai
           echo "🔗 Buscando bugs vinculados ao card pai..."
-          # Extrai CARD_IDs de comentários no card (ex: "Bug relacionado: abc123")
-          # Simula busca por cards filhos no Trello (via nome ou desc)
-          # Neste exemplo, assume-se que o bug foi criado com "[BUG] [Pai: kz7q1L3x] ..."
-          # Você pode ajustar conforme o padrão usado
-
-          # Busca todos os cards na lista de bugs
           BUGS_RESPONSE=$(curl -s "https://api.trello.com/1/lists/${{ env.LIST_BUGS_ID }}/cards?key=${{ secrets.TRELLO_API_KEY }}&token=${{ secrets.TRELLO_TOKEN }}")
 
-          # Extrai IDs dos cards que mencionam o CARD_ID pai
           echo "$BUGS_RESPONSE" | jq -r --arg PARENT_ID "${{ env.CARD_ID }}" '.[] | select(.name | contains($PARENT_ID) or .desc | contains($PARENT_ID)) | .id' | while read BUG_ID; do
             if [ -n "$BUG_ID" ]; then
               echo "🚚 Movendo bug vinculado $BUG_ID para DONE..."
@@ -116,12 +113,10 @@ jobs:
         if: github.event_name == 'issues' && github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')
         run: |
           echo "🆕 Criando card para bug..."
-          # Extrai CARD_ID da task pai (opcional: do corpo da issue)
           PARENT_CARD_ID=""
           ISSUE_BODY="${{ github.event.issue.body }}"
-          # Exemplo: "Relates to: https://trello.com/c/kz7q1L3x"
-          if echo "$ISSUE_BODY" | grep -qE 'https://trello.com/c/[a-zA-Z0-9]+'; then
-            PARENT_CARD_ID=$(echo "$ISSUE_BODY" | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1 | awk -F'/' '{print $5}')
+          if echo "$ISSUE_BODY" | grep -qiE 'https://trello\.com/c/[a-zA-Z0-9]+'; then
+            PARENT_CARD_ID=$(echo "$ISSUE_BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1 | awk -F'/' '{print $5}')
             BUG_NAME="[BUG] [Pai: $PARENT_CARD_ID] ${{ github.event.issue.title }}"
           else
             BUG_NAME="[BUG] ${{ github.event.issue.title }}"
@@ -160,3 +155,4 @@ jobs:
           
           echo "✅ Fallback log salvo em: logs/trello-fallback.log"
           cat logs/trello-fallback.log
+          
