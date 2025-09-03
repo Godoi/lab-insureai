@@ -57,3 +57,4 @@ Organizado com **Trello** para rastrear tarefas, integração com GitHub e trans
 ```bash
 git clone https://github.com/seu-usuario/insureai.git
 cd insureai
+
