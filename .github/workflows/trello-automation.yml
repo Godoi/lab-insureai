@@ -19,6 +19,7 @@ jobs:
       LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
 
     steps:
+      # 🔒 Validação: Impede merge se não houver link do Trello
       - name: 🔒 Validar link do Trello no corpo do PR
         run: |
           echo "🔍 Validando presença do link do Trello..."
