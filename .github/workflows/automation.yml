@@ -1,0 +1,171 @@
+name: 🔄 GitHub + Trello Automation (único e completo)
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - release/testing
+      - main
+
+jobs:
+  # =================== JOB: AUTOMAÇÃO COM TRELLO ===================
+  automate-trello:
+    runs-on: ubuntu-latest
+    environment: TRELLO_API
+    env:
+      LIST_TESTS_ID: ${{ vars.TRELLO_LIST_TESTS_ID }}
+      LIST_DONE_ID: ${{ vars.TRELLO_LIST_DONE_ID }}
+      LIST_BUGS_ID: ${{ vars.TRELLO_LIST_BUGS_ID }}
+      LIST_TODO_ID: ${{ vars.TRELLO_LIST_TODO_ID }}
+
+    steps:
+      # 🔧 Instalar jq
+      - name: Instalar jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # 🔍 Extrair PARENT_ID da issue
+      - name: 🧹 Extrair PARENT_ID do corpo da issue
+        if: github.event_name == 'issues'
+        run: |
+          echo "🔍 Procurando link do Trello na issue..."
+          BODY="${{ github.event.issue.body }}"
+          RELATES_URL=$(echo "$BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
+          if [ -n "$RELATES_URL" ]; then
+            PARENT_ID=$(echo "$RELATES_URL" | awk -F'/' '{print $5}')
+            echo "PARENT_ID=$PARENT_ID" >> $GITHUB_ENV
+            echo "::notice title=Task pai encontrada::$PARENT_ID"
+          fi
+
+      # 🔒 Validar Relates to (se aplicável)
+      - name: 🔒 Validar Relates to (se aplicável)
+        if: >-
+          github.event_name == 'issues' &&
+          (contains(github.event.issue.labels.*.name, 'bug') ||
+           contains(github.event.issue.labels.*.name, 'enhancement')) &&
+          env.PARENT_ID == ''
+        run: |
+          echo "::error::❌ Falha: Campo 'Relates to' obrigatório para bugs e features."
+          exit 1
+
+      - name: 🚫 Fechar issue sem vínculo
+        if: failure() && github.event_name == 'issues'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Esta issue foi fechada porque o campo **Relates to** não foi preenchido.\n\n➡️ Por favor, reabra com o link do card do Trello:\n\n```\nRelates to: https://trello.com/c/kz7q1L3x\n```'
+            });
+            await github.rest.issues.update({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed'
+            });
+
+      # 🐛 Criar card para bug
+      - name: 🐛 Criar card para bug
+        if: >-
+          github.event_name == 'issues' &&
+          github.event.action == 'opened' &&
+          contains(github.event.issue.labels.*.name, 'bug')
+        run: |
+          NAME="[BUG]"
+          if [ -n "${{ env.PARENT_ID }}" ]; then
+            NAME="$NAME [Pai: ${{ env.PARENT_ID }}]"
+          fi
+          NAME="$NAME ${{ github.event.issue.title }}"
+          curl -X POST "https://api.trello.com/1/cards" \
+            --data-urlencode "name=$NAME" \
+            --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
+            --data-urlencode "idList=${{ env.LIST_BUGS_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 🚀 Criar card para feature
+      - name: 🚀 Criar card para feature
+        if: >-
+          github.event_name == 'issues' &&
+          github.event.action == 'opened' &&
+          contains(github.event.issue.labels.*.name, 'enhancement') &&
+          env.PARENT_ID != ''
+        run: |
+          NAME="[FEAT] [Pai: ${{ env.PARENT_ID }}] ${{ github.event.issue.title }}"
+          curl -X POST "https://api.trello.com/1/cards" \
+            --data-urlencode "name=$NAME" \
+            --data-urlencode "desc=Planejado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
+            --data-urlencode "idList=${{ env.LIST_TODO_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 🔒 Validação de PR (mantida)
+      - name: 🔒 Validar link do Trello no corpo do PR
+        if: github.event_name == 'pull_request'
+        run: |
+          BODY="${{ github.event.pull_request.body }}"
+          if ! echo "$BODY" | grep -qiE 'https://trello\.com/c/[a-zA-Z0-9]+'; then
+            echo "::error::❌ Falha: O corpo do PR deve conter um link do Trello."
+            exit 1
+          fi
+
+      # 🧹 Extrair CARD_ID do PR
+      - name: 🧹 Extrair TRELLO_CARD_ID do PR
+        if: github.event_name == 'pull_request'
+        run: |
+          CARD_URL=$(echo "${{ github.event.pull_request.body }}" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
+          if [ -n "$CARD_URL" ]; then
+            CARD_ID=$(echo "$CARD_URL" | awk -F'/' '{print $5}')
+            echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
+          fi
+
+      # 🟡 Mover para TESTS
+      - name: 🟡 Mover para TESTS (release/testing)
+        if: github.event.pull_request.target.ref == 'release/testing' && env.CARD_ID != ''
+        run: |
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+            --data-urlencode "idList=${{ env.LIST_TESTS_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 🔐 Validar fluxo: release/testing → main
+      - name: 🔐 Validar fluxo PR: release/testing → main
+        if: github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
+        run: |
+          echo "🔐 Validando se o PR passou por release/testing..."
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          
+          # Busca PRs anteriores da mesma branch para release/testing
+          PRS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls?head=${GITHUB_REPOSITORY_OWNER}:${HEAD_BRANCH}&base=release/testing&state=closed")
+
+          COUNT=$(echo "$PRS_RESPONSE" | jq '. | length')
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::❌ PR para 'main' bloqueado: você deve primeiro abrir um PR para 'release/testing'."
+            echo "💡 Fluxo esperado: feature → release/testing → main"
+            exit 1
+          else
+            echo "✅ Fluxo de PR válido: passou por release/testing"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 🟢 Mover para DONE
+      - name: 🟢 Mover para ✅ Done (merge no main)
+        if: github.event.pull_request.merged == true && github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
+        run: |
+          curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
+            --data-urlencode "idList=${{ env.LIST_DONE_ID }}" \
+            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
+            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+
+      # 📝 Fallback
+      - name: 📝 Fallback - Registrar erro localmente
+        if: failure()
+        run: |
+          mkdir -p logs
+          echo "[$(date)] FALHA no workflow" >> logs/trello-fallback.log
