@@ -100,4 +100,3 @@ Este projeto foi desenvolvido com boas práticas de engenharia de software:
 ```bash
 git clone https://github.com/seu-usuario/lab-insureai.git
 cd lab-insureai
-
