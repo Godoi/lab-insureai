@@ -81,16 +81,14 @@ jobs:
 
       # 🐛 Criar card para bug
       - name: 🐛 Criar card para bug
-        if: >-
-          github.event_name == 'issues' &&
-          github.event.action == 'opened' &&
-          contains(github.event.issue.labels.*.name, 'bug')
+        if: contains(github.event.issue.labels.*.name, 'bug')
         run: |
           NAME="[BUG]"
           if [ -n "${{ env.PARENT_ID }}" ]; then
             NAME="$NAME [Pai: ${{ env.PARENT_ID }}]"
           fi
           NAME="$NAME ${{ github.event.issue.title }}"
+
           curl -X POST "https://api.trello.com/1/cards" \
             -d "name=$NAME" \
             -d "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
