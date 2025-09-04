@@ -1,5 +1,10 @@
 name: 🔄 GitHub + Trello Automation (único e completo)
 
+# 🔐 Permissões explícitas para evitar 403
+permissions:
+  issues: write
+  pull-requests: write
+
 on:
   issues:
     types: [opened, edited]
@@ -20,7 +25,7 @@ jobs:
       LIST_TODO_ID: ${{ vars.TRELLO_LIST_TODO_ID }}
 
     steps:
-      # 🔧 Instalar jq
+      # 🔧 Instalar jq (necessário para processar JSON)
       - name: Instalar jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
@@ -30,14 +35,17 @@ jobs:
         run: |
           echo "🔍 Procurando link do Trello na issue..."
           BODY="${{ github.event.issue.body }}"
+          # Extrai qualquer link do tipo trello.com/c/ID
           RELATES_URL=$(echo "$BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
           if [ -n "$RELATES_URL" ]; then
             PARENT_ID=$(echo "$RELATES_URL" | awk -F'/' '{print $5}')
             echo "PARENT_ID=$PARENT_ID" >> $GITHUB_ENV
             echo "::notice title=Task pai encontrada::$PARENT_ID"
+          else
+            echo "::warning title=Sem vínculo::Nenhum link do Trello encontrado."
           fi
 
-      # 🔒 Validar Relates to (se aplicável)
+      # 🔒 Validar Relates to (para bugs e features)
       - name: 🔒 Validar Relates to (se aplicável)
         if: >-
           github.event_name == 'issues' &&
@@ -48,8 +56,13 @@ jobs:
           echo "::error::❌ Falha: Campo 'Relates to' obrigatório para bugs e features."
           exit 1
 
-      - name: 🚫 Fechar issue sem vínculo
-        if: failure() && github.event_name == 'issues'
+      # 🚫 Fechar issue sem vínculo (só em repositório principal)
+      - name: 🚫 Fechar issue sem vínculo ao Trello
+        if: >-
+          failure() &&
+          github.event_name == 'issues' &&
+          github.event.pull_request == '' &&
+          github.actor != 'dependabot[bot]'
         uses: actions/github-script@v6
         with:
           script: |
@@ -101,7 +114,7 @@ jobs:
             -d "key=${{ secrets.TRELLO_API_KEY }}" \
             -d "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 🔒 Validação de PR
+      # 🔒 Validar link do Trello no corpo do PR
       - name: 🔒 Validar link do Trello no corpo do PR
         if: github.event_name == 'pull_request'
         run: |
@@ -121,10 +134,11 @@ jobs:
             echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
           fi
 
-      # 🟡 Mover para TESTS
+      # 🟡 Mover para TESTS (release/testing)
       - name: 🟡 Mover para TESTS (release/testing)
         if: github.event.pull_request.target.ref == 'release/testing' && env.CARD_ID != ''
         run: |
+          echo "🚚 Movendo card ${{ env.CARD_ID }} para TESTS..."
           curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
             -d "idList=${{ env.LIST_TESTS_ID }}" \
             -d "key=${{ secrets.TRELLO_API_KEY }}" \
@@ -141,25 +155,30 @@ jobs:
           COUNT=$(echo "$PRS_RESPONSE" | jq '. | length')
           if [ "$COUNT" -eq 0 ]; then
             echo "::error::❌ PR para 'main' bloqueado: você deve primeiro abrir um PR para 'release/testing'."
+            echo "💡 Fluxo esperado: feature → release/testing → main"
             exit 1
           else
-            echo "✅ Fluxo de PR válido"
+            echo "✅ Fluxo de PR válido: passou por release/testing"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 🟢 Mover para DONE
+      # 🟢 Mover para DONE (merge no main)
       - name: 🟢 Mover para ✅ Done (merge no main)
         if: github.event.pull_request.merged == true && github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
         run: |
+          echo "✅ Movendo card ${{ env.CARD_ID }} para DONE..."
           curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
             -d "idList=${{ env.LIST_DONE_ID }}" \
             -d "key=${{ secrets.TRELLO_API_KEY }}" \
             -d "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 📝 Fallback
+      # 📝 Fallback: Registrar erro localmente
       - name: 📝 Fallback - Registrar erro localmente
         if: failure()
         run: |
           mkdir -p logs
-          echo "[$(date)] FALHA no workflow" >> logs/trello-fallback.log
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S")
+          echo "[$TIMESTAMP] FALHA no workflow" >> logs/trello-fallback.log
+          echo "Erro na automação Trello. Verifique os logs do GitHub Actions." >> logs/trello-fallback.log
+          echo "---" >> logs/trello-fallback.log
