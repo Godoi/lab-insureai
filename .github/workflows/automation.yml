@@ -1,6 +1,5 @@
 name: 🔄 GitHub + Trello Automation (único e completo)
 
-# 🔐 Permissões explícitas para evitar 403
 permissions:
   issues: write
   pull-requests: write
@@ -25,7 +24,7 @@ jobs:
       LIST_TODO_ID: ${{ vars.TRELLO_LIST_TODO_ID }}
 
     steps:
-      # 🔧 Instalar jq (necessário para processar JSON)
+      # 🔧 Instalar jq
       - name: Instalar jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
@@ -35,7 +34,6 @@ jobs:
         run: |
           echo "🔍 Procurando link do Trello na issue..."
           BODY="${{ github.event.issue.body }}"
-          # Extrai qualquer link do tipo trello.com/c/ID
           RELATES_URL=$(echo "$BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
           if [ -n "$RELATES_URL" ]; then
             PARENT_ID=$(echo "$RELATES_URL" | awk -F'/' '{print $5}')
@@ -45,7 +43,7 @@ jobs:
             echo "::warning title=Sem vínculo::Nenhum link do Trello encontrado."
           fi
 
-      # 🔒 Validar Relates to (para bugs e features)
+      # 🔒 Validar Relates to
       - name: 🔒 Validar Relates to (se aplicável)
         if: >-
           github.event_name == 'issues' &&
@@ -56,7 +54,7 @@ jobs:
           echo "::error::❌ Falha: Campo 'Relates to' obrigatório para bugs e features."
           exit 1
 
-      # 🚫 Fechar issue sem vínculo (só em repositório principal)
+      # 🚫 Fechar issue sem vínculo
       - name: 🚫 Fechar issue sem vínculo ao Trello
         if: >-
           failure() &&
@@ -81,14 +79,16 @@ jobs:
 
       # 🐛 Criar card para bug
       - name: 🐛 Criar card para bug
-        if: contains(github.event.issue.labels.*.name, 'bug')
+        if: >-
+          github.event_name == 'issues' &&
+          github.event.action == 'opened' &&
+          contains(github.event.issue.labels.*.name, 'bug')
         run: |
           NAME="[BUG]"
           if [ -n "${{ env.PARENT_ID }}" ]; then
             NAME="$NAME [Pai: ${{ env.PARENT_ID }}]"
           fi
           NAME="$NAME ${{ github.event.issue.title }}"
-
           curl -X POST "https://api.trello.com/1/cards" \
             -d "name=$NAME" \
             -d "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
@@ -132,7 +132,7 @@ jobs:
             echo "CARD_ID=$CARD_ID" >> $GITHUB_ENV
           fi
 
-      # 🟡 Mover para TESTS (release/testing)
+      # 🟡 Mover para TESTS
       - name: 🟡 Mover para TESTS (release/testing)
         if: github.event.pull_request.target.ref == 'release/testing' && env.CARD_ID != ''
         run: |
@@ -161,7 +161,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 🟢 Mover para DONE (merge no main)
+      # 🟢 Mover para DONE
       - name: 🟢 Mover para ✅ Done (merge no main)
         if: github.event.pull_request.merged == true && github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
         run: |
@@ -171,7 +171,7 @@ jobs:
             -d "key=${{ secrets.TRELLO_API_KEY }}" \
             -d "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 📝 Fallback: Registrar erro localmente
+      # 📝 Fallback
       - name: 📝 Fallback - Registrar erro localmente
         if: failure()
         run: |
