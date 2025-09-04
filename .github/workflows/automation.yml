@@ -10,7 +10,6 @@ on:
       - main
 
 jobs:
-  # =================== JOB: AUTOMAÇÃO COM TRELLO ===================
   automate-trello:
     runs-on: ubuntu-latest
     environment: TRELLO_API
@@ -80,11 +79,11 @@ jobs:
           fi
           NAME="$NAME ${{ github.event.issue.title }}"
           curl -X POST "https://api.trello.com/1/cards" \
-            --data-urlencode "name=$NAME" \
-            --data-urlencode "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
-            --data-urlencode "idList=${{ env.LIST_BUGS_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+            -d "name=$NAME" \
+            -d "desc=Reportado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
+            -d "idList=${{ env.LIST_BUGS_ID }}" \
+            -d "key=${{ secrets.TRELLO_API_KEY }}" \
+            -d "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 🚀 Criar card para feature
       - name: 🚀 Criar card para feature
@@ -96,13 +95,13 @@ jobs:
         run: |
           NAME="[FEAT] [Pai: ${{ env.PARENT_ID }}] ${{ github.event.issue.title }}"
           curl -X POST "https://api.trello.com/1/cards" \
-            --data-urlencode "name=$NAME" \
-            --data-urlencode "desc=Planejado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
-            --data-urlencode "idList=${{ env.LIST_TODO_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+            -d "name=$NAME" \
+            -d "desc=Planejado no GitHub: ${{ github.event.issue.html_url }}\n\n${{ github.event.issue.body }}\n\n🔗 Vinculado à task: ${{ env.PARENT_ID }}" \
+            -d "idList=${{ env.LIST_TODO_ID }}" \
+            -d "key=${{ secrets.TRELLO_API_KEY }}" \
+            -d "token=${{ secrets.TRELLO_TOKEN }}"
 
-      # 🔒 Validação de PR (mantida)
+      # 🔒 Validação de PR
       - name: 🔒 Validar link do Trello no corpo do PR
         if: github.event_name == 'pull_request'
         run: |
@@ -127,29 +126,24 @@ jobs:
         if: github.event.pull_request.target.ref == 'release/testing' && env.CARD_ID != ''
         run: |
           curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
-            --data-urlencode "idList=${{ env.LIST_TESTS_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+            -d "idList=${{ env.LIST_TESTS_ID }}" \
+            -d "key=${{ secrets.TRELLO_API_KEY }}" \
+            -d "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 🔐 Validar fluxo: release/testing → main
-      - name: 🔐 Validar fluxo PR: release/testing → main
+      - name: 🔐 Validar fluxo PR release/testing → main
         if: github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
         run: |
           echo "🔐 Validando se o PR passou por release/testing..."
           HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          
-          # Busca PRs anteriores da mesma branch para release/testing
           PRS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/pulls?head=${GITHUB_REPOSITORY_OWNER}:${HEAD_BRANCH}&base=release/testing&state=closed")
-
           COUNT=$(echo "$PRS_RESPONSE" | jq '. | length')
-
           if [ "$COUNT" -eq 0 ]; then
             echo "::error::❌ PR para 'main' bloqueado: você deve primeiro abrir um PR para 'release/testing'."
-            echo "💡 Fluxo esperado: feature → release/testing → main"
             exit 1
           else
-            echo "✅ Fluxo de PR válido: passou por release/testing"
+            echo "✅ Fluxo de PR válido"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -159,9 +153,9 @@ jobs:
         if: github.event.pull_request.merged == true && github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
         run: |
           curl -X PUT "https://api.trello.com/1/cards/${{ env.CARD_ID }}" \
-            --data-urlencode "idList=${{ env.LIST_DONE_ID }}" \
-            --data-urlencode "key=${{ secrets.TRELLO_API_KEY }}" \
-            --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
+            -d "idList=${{ env.LIST_DONE_ID }}" \
+            -d "key=${{ secrets.TRELLO_API_KEY }}" \
+            -d "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 📝 Fallback
       - name: 📝 Fallback - Registrar erro localmente
