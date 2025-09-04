@@ -15,7 +15,9 @@ jobs:
         run: |
           echo "🔍 Procurando 'Relates to' na issue..."
           BODY="${{ github.event.issue.body }}"
-          RELATES_URL=$(echo "$BODY" | grep -oE 'Relates to:[^\S\n]*https://trello.com/c/[a-zA-Z0-9]+' | grep -oE 'https://trello.com/c/[a-zA-Z0-9]+' | head -1)
+
+          # Regex corrigida: sem espaços extras, aceita / no final
+          RELATES_URL=$(echo "$BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
 
           if [ -n "$RELATES_URL" ]; then
             PARENT_ID=$(echo "$RELATES_URL" | awk -F'/' '{print $5}')
