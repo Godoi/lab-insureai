@@ -132,7 +132,7 @@ jobs:
             --data-urlencode "token=${{ secrets.TRELLO_TOKEN }}"
 
       # 🔐 Validar fluxo: release/testing → main
-      - name: 🔐 Validar fluxo PR: release/testing → main
+      - name: 🔐 Validar fluxo PR release/testing → main
         if: github.event.pull_request.target.ref == 'main' && env.CARD_ID != ''
         run: |
           echo "🔐 Validando se o PR passou por release/testing..."
