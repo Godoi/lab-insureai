@@ -28,15 +28,19 @@ jobs:
       - name: Instalar jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # 🔍 Extrair PARENT_ID da issue
+      # 🧹 Extrair PARENT_ID da issue
       - name: 🧹 Extrair PARENT_ID do corpo da issue
         if: github.event_name == 'issues'
         run: |
           echo "🔍 Procurando link do Trello na issue..."
           BODY="${{ github.event.issue.body }}"
-          RELATES_URL=$(echo "$BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+' | head -1)
+
+          # Regex flexível: aceita URL completa, caminho, caracteres codificados
+          RELATES_URL=$(echo "$BODY" | grep -oEi 'https://trello\.com/c/[a-zA-Z0-9]+(/[a-zA-Z0-9%\-]+)*' | head -1)
+
           if [ -n "$RELATES_URL" ]; then
-            PARENT_ID=$(echo "$RELATES_URL" | awk -F'/' '{print $5}')
+            # Extrai apenas o ID (7-8 caracteres após /c/)
+            PARENT_ID=$(echo "$RELATES_URL" | sed -E 's|.*/c/([a-zA-Z0-9]+).*|\1|')
             echo "PARENT_ID=$PARENT_ID" >> $GITHUB_ENV
             echo "::notice title=Task pai encontrada::$PARENT_ID"
           else
