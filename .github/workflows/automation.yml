@@ -171,10 +171,23 @@ jobs:
             -d "key=${{ secrets.TRELLO_API_KEY }}" \
             -d "token=${{ secrets.TRELLO_TOKEN }}"
 
-          # 🔗 Buscar e mover bugs vinculados ao card pai
-          echo "🔗 Buscando bugs vinculados ao card pai..."
+      # 🔗 Buscar e mover bugs vinculados ao card pai
+      - name: 🔗 Mover bugs vinculados ao DONE
+        if: github.event.pull_request.merged == true && (github.event.pull_request.target.ref == 'main' || github.base_ref == 'main') && env.CARD_ID != ''
+        run: |
+          echo "🔍 Buscando bugs vinculados ao card pai: ${{ env.CARD_ID }}..."
+          
+          # Busca todos os cards na lista de bugs
           BUGS_RESPONSE=$(curl -s "https://api.trello.com/1/lists/${{ env.LIST_BUGS_ID }}/cards?key=${{ secrets.TRELLO_API_KEY }}&token=${{ secrets.TRELLO_TOKEN }}")
-          echo "$BUGS_RESPONSE" | jq -r --arg PARENT_ID "${{ env.CARD_ID }}" '.[] | select(.name | contains($PARENT_ID) or .desc | contains($PARENT_ID)) | .id' | while read BUG_ID; do
+          
+          # Filtra os que mencionam o CARD_ID no nome ou descrição
+          echo "$BUGS_RESPONSE" | jq -r --arg PARENT_ID "${{ env.CARD_ID }}" '
+            .[] | 
+            select(
+              .name | contains("Pai: \($PARENT_ID)") or 
+              .desc | contains("Pai: \($PARENT_ID)")
+            ) | .id
+          ' | while read BUG_ID; do
             if [ -n "$BUG_ID" ]; then
               echo "🚚 Movendo bug vinculado $BUG_ID para DONE..."
               curl -X PUT "https://api.trello.com/1/cards/$BUG_ID" \
